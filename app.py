@@ -113,11 +113,20 @@ st.markdown('<div class="subtitle">Orchestrate role-playing AI agents and inject
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not GEMINI_API_KEY:
-    st.warning("⚠️ GEMINI_API_KEY environment variable not found. Please enter it below or configure your .env file.")
-    GEMINI_API_KEY = st.text_input("Gemini API Key", type="password")
-    if not GEMINI_API_KEY:
-        st.info("Please set the Gemini API Key to continue.")
+# Check if key is missing or invalid (doesn't start with AIzaSy)
+is_valid_key = GEMINI_API_KEY and GEMINI_API_KEY.startswith("AIzaSy")
+
+if not is_valid_key:
+    if GEMINI_API_KEY:
+        st.warning(f"⚠️ The configured key ({GEMINI_API_KEY[:6]}...) is invalid. Gemini API keys must start with 'AIzaSy'. Please enter a valid key below:")
+    else:
+        st.warning("⚠️ GEMINI_API_KEY environment variable not found. Please enter it below or configure your .env file.")
+    
+    user_key = st.text_input("Gemini API Key", type="password")
+    if user_key and user_key.startswith("AIzaSy"):
+        GEMINI_API_KEY = user_key
+    else:
+        st.info("Please set a valid Gemini API Key to continue.")
         st.stop()
 
 # Force key propagation to all Google GenAI libraries
