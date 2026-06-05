@@ -1,4 +1,15 @@
 import os
+import sys
+
+# AWS Compatibility: Patch SQLite3 for ChromaDB and set HF_HOME for writable cache directory
+try:
+    import pysqlite3
+    sys.modules["sqlite3"] = pysqlite3
+except ImportError:
+    pass
+
+os.environ["HF_HOME"] = "/tmp/huggingface"
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -6,8 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from crewai import Agent, Task, Crew, LLM
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
 # =========================
@@ -110,6 +120,13 @@ if not GEMINI_API_KEY:
         st.info("Please set the Gemini API Key to continue.")
         st.stop()
 
+# Force key propagation to all Google GenAI libraries
+os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+
+# Display key status in sidebar for debugging
+st.sidebar.success(f"🔑 API Key: {GEMINI_API_KEY[:6]}... (len: {len(GEMINI_API_KEY)})")
+
 # =========================
 # GEMINI MODEL
 # =========================
@@ -125,8 +142,8 @@ llm = LLM(
 # =========================
 @st.cache_resource
 def load_vectorstore():
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004"
     )
     persist_db_path = "./chroma_db"
     
@@ -183,7 +200,22 @@ try:
     vectorstore = load_vectorstore()
 except Exception as e:
     st.error(f"Failed to load/initialize Chroma DB: {e}")
-    st.info("Check that you have a C++ compiler installed or pysqlite3-binary configured if running on Linux.")
+    st.markdown(
+        """
+        ### 🔍 How to resolve this issue:
+        
+        1. **Check your Gemini API Key**:
+           - Make sure your key is copied completely and starts with `AIzaSy...`.
+           - In AWS Elastic Beanstalk, make sure you configured `GEMINI_API_KEY` under **Configuration** -> **Environment properties** (Platform properties).
+           
+        2. **Enable the Generative Language API**:
+           - If you created your API key using the **Google Cloud Console** instead of **Google AI Studio**, you must manually go to your GCP project and **enable the Generative Language API**.
+           - If using Google AI Studio, this API is enabled automatically.
+           
+        3. **Clear Cached Files**:
+           - If you previously had a corrupted database build, clear the cache. In AWS, redeploying with a different version label will reset the staging folder.
+        """
+    )
     st.stop()
 
 # =========================
@@ -387,40 +419,3 @@ if st.session_state["campaign_result"] is not None:
         file_name=f"{st.session_state['brand'].lower()}_campaign_report.md",
         mime="text/markdown"
     )
-
-    # n8n Webhook Integration
-    st.markdown("---")
-    st.markdown("### 🔌 Automation Pipeline (n8n)")
-    st.markdown("Expose and trigger your marketing pipelines automatically using webhook integrations.")
-
-    n8n_url = st.text_input(
-        "Enter your n8n Production Webhook URL",
-        placeholder="https://your-n8n-instance.com/webhook/crewai-campaign-trigger"
-    )
-
-    if st.button("Trigger n8n Campaign Pipeline"):
-        if not n8n_url:
-            st.warning("⚠️ Please provide a valid n8n Webhook URL!")
-        else:
-            with st.spinner("Pushing campaign payloads to n8n..."):
-                try:
-                    import requests
-
-                    payload = {
-                        "brand_name": st.session_state["brand"],
-                        "product_name": st.session_state["product"],
-                        "target_audience": st.session_state["audience"],
-                        "marketing_goal": st.session_state["goal"],
-                        "campaign_budget": st.session_state["budget"],
-                        "platforms": st.session_state["selected_platforms"],
-                        "campaign_report": st.session_state["campaign_result"]
-                    }
-
-                    response = requests.post(n8n_url, json=payload, timeout=30)
-
-                    if response.status_code == 200:
-                        st.success("🚀 Campaign successfully sent to n8n workflow!")
-                    else:
-                        st.error(f"❌ Failed to trigger n8n (HTTP {response.status_code}): {response.text}")
-                except Exception as e:
-                    st.error(f"❌ Webhook Error: {str(e)}")

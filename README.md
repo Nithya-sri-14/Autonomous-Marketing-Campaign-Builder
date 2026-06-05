@@ -43,9 +43,8 @@ It supports both an interactive **Streamlit Web Application** for a visual exper
 ├── data/
 │   └── brand.txt             # Brand identity, tone guidelines, and prohibited words (RAG source)
 ├── outputs/                  # Directory where CLI campaign output markdown briefs are saved
-├── app.py                    # Streamlit Web Application (Includes custom premium UI & n8n triggers)
+├── app.py                    # Streamlit Web Application (Includes custom premium UI)
 ├── marketing_crew.py         # CLI execution script running the 4-agent campaign builder
-├── n8n_workflow.json         # Ready-to-import n8n workflow for post-generation distribution
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # Sample environment configuration file
 └── .gitignore                # Git files/directories to ignore (keeps API keys and databases local)
@@ -112,7 +111,6 @@ Open the URL provided in your terminal (usually `http://localhost:8501`).
 
 - **Auto RAG Database Build**: The Streamlit app checks if `./chroma_db` is populated. If not, it automatically reads your `data/brand.txt` file, chunks the text, creates embeddings using local HuggingFace models, and builds the Chroma database.
 - **Custom CSS Theme**: The application features a premium dark-glassmorphism theme with modern typography ("Plus Jakarta Sans").
-- **n8n Webhook Trigger**: Easily input your n8n production webhook URL in the UI to push generated marketing campaigns directly into automated delivery pipelines.
 
 ### Option B: CLI Marketing Crew (Terminal Script)
 
@@ -128,22 +126,37 @@ python marketing_crew.py --topic "Newsletter growth strategies for local retail 
 
 ---
 
-## 🔌 n8n Workflow Automation
+## ☁️ AWS Elastic Beanstalk Deployment
 
-We've bundled an automated delivery workflow in **`n8n_workflow.json`**. 
+This project is fully compatible with **AWS Elastic Beanstalk (Python Platform)**.
 
-This workflow triggers when the web application posts the campaign report payload. It:
-1. Receives the webhook trigger.
-2. Parsers and separates the campaign report sections (Research, Blog post, Social content).
-3. Automatically drafts and sends an email notification with the consolidated package.
-4. Alerts the marketing channels via Telegram, staging the LinkedIn post and Instagram caption draft.
+### 1. Platform Details
+- **Platform**: Python
+- **Platform Branch**: `Python 3.11 running on 64bit Amazon Linux 2023` (or `Python 3.10`)
 
-### Setting Up n8n:
-1. Open your **n8n** instance.
-2. Click on **Workflows** -> **Import from file...** and select `n8n_workflow.json`.
-3. Configure your Gmail and Telegram credentials in the corresponding nodes.
-4. Save and **Activate** the workflow.
-5. Copy the production **Webhook URL** and paste it into the Streamlit Web Application when running.
+### 2. AWS Compatibility Measures
+- **Streamlit Port Routing**: The bundle includes a `Procfile` at the root which configures Streamlit to run on port `5000` (which AWS Elastic Beanstalk uses to proxy HTTP traffic).
+- **SQLite3 Patch**: AWS runs Amazon Linux which comes with an older version of SQLite. The code contains an automatic patch (`pysqlite3-binary`) that overrides the system sqlite3 dynamically on start.
+- **Cache Directory**: We configure the HuggingFace cache directory (`HF_HOME`) to `/tmp/huggingface` in the code, ensuring the models can be downloaded to a writable location on EC2 instances.
+
+### 3. Deployment Steps
+1. **Zip the Project**:
+   Compress your project files into a `.zip` archive. Make sure you **do not** include `venv/` or any local `chroma_db/` folder in the zip file.
+   ```bash
+   zip -r deploy.zip . -x "venv/*" "chroma_db/*" ".git/*" "*.pyc"
+   ```
+2. **Create Beanstalk Application & Environment**:
+   - Go to the AWS Elastic Beanstalk console and click **Create Application**.
+   - Set the Platform to **Python**.
+   - Under **Application code**, select **Upload your code** and upload your `deploy.zip` file.
+3. **Configure Environment Variables**:
+   - In your Beanstalk Environment configuration, go to **Configuration** -> **Updates, monitoring, and logging** -> **Platform properties** (Environment properties).
+   - Add an environment property:
+     - Name: `GEMINI_API_KEY`
+     - Value: `your_gemini_api_key`
+   - Save and apply the configuration.
+4. **Access the App**:
+   Once the environment health shows **Green**, click the environment URL to open your Streamlit app!
 
 ---
 

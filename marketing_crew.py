@@ -1,4 +1,15 @@
 import os
+import sys
+
+# AWS Compatibility: Patch SQLite3 for ChromaDB and set HF_HOME for writable cache directory
+try:
+    import pysqlite3
+    sys.modules["sqlite3"] = pysqlite3
+except ImportError:
+    pass
+
+os.environ["HF_HOME"] = "/tmp/huggingface"
+
 import argparse
 from dotenv import load_dotenv
 
@@ -6,12 +17,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from crewai import Agent, Task, Crew, LLM
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
 def load_vectorstore():
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    embeddings = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004"
     )
     persist_db_path = "./chroma_db"
     
@@ -86,6 +97,9 @@ def main():
         print("❌ Error: GEMINI_API_KEY environment variable is not set.")
         print("Please configure it in a .env file or export it in your shell.")
         return
+
+    os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
+    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
     # Ensure outputs directory exists
     os.makedirs("outputs", exist_ok=True)
