@@ -118,7 +118,7 @@ def main():
     # 2. Configure Gemini LLM
     print("🤖 Configuring Gemini Large Language Model...")
     llm = LLM(
-        model="gemini/gemini-2.5-flash",
+        model="gemini/gemini-1.5-flash",
         temperature=0.7,
         api_key=GEMINI_API_KEY,
         max_retries=6

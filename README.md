@@ -43,8 +43,9 @@ It supports both an interactive **Streamlit Web Application** for a visual exper
 ├── data/
 │   └── brand.txt             # Brand identity, tone guidelines, and prohibited words (RAG source)
 ├── outputs/                  # Directory where CLI campaign output markdown briefs are saved
-├── app.py                    # Streamlit Web Application (Includes custom premium UI)
+├── app.py                    # Streamlit Web Application (Includes custom premium UI & n8n triggers)
 ├── marketing_crew.py         # CLI execution script running the 4-agent campaign builder
+├── n8n_workflow.json         # Ready-to-import n8n workflow for post-generation distribution
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # Sample environment configuration file
 └── .gitignore                # Git files/directories to ignore (keeps API keys and databases local)
@@ -111,6 +112,7 @@ Open the URL provided in your terminal (usually `http://localhost:8501`).
 
 - **Auto RAG Database Build**: The Streamlit app checks if `./chroma_db` is populated. If not, it automatically reads your `data/brand.txt` file, chunks the text, creates embeddings using local HuggingFace models, and builds the Chroma database.
 - **Custom CSS Theme**: The application features a premium dark-glassmorphism theme with modern typography ("Plus Jakarta Sans").
+- **n8n Webhook Trigger**: Easily input your n8n production webhook URL in the UI to push generated marketing campaigns directly into automated delivery pipelines.
 
 ### Option B: CLI Marketing Crew (Terminal Script)
 
@@ -123,6 +125,25 @@ python marketing_crew.py
 # Run with custom campaign topic
 python marketing_crew.py --topic "Newsletter growth strategies for local retail shops" --output "outputs/newsletter_campaign.md"
 ```
+
+---
+
+## 🔌 n8n Workflow Automation
+
+We've bundled an automated delivery workflow in **`n8n_workflow.json`**. 
+
+This workflow triggers when the web application posts the campaign report payload. It:
+1. Receives the webhook trigger.
+2. Parses and separates the campaign report sections (Research, Blog post, Social content).
+3. Automatically drafts and sends an email notification with the consolidated package.
+4. Alerts the marketing channels via Telegram, staging the LinkedIn post and Instagram caption draft.
+
+### Setting Up n8n:
+1. Open your **n8n** instance.
+2. Click on **Workflows** -> **Import from file...** and select `n8n_workflow.json`.
+3. Configure your Gmail and Telegram credentials in the corresponding nodes.
+4. Save and **Activate** the workflow.
+5. Copy the production **Webhook URL** and paste it into the Streamlit Web Application when running.
 
 ---
 

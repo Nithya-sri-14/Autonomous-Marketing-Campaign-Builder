@@ -131,7 +131,7 @@ st.sidebar.success(f"🔑 API Key: {GEMINI_API_KEY[:6]}... (len: {len(GEMINI_API
 # GEMINI MODEL
 # =========================
 llm = LLM(
-    model="gemini/gemini-2.5-flash",
+    model="gemini/gemini-1.5-flash",
     temperature=0.7,
     api_key=GEMINI_API_KEY,
     max_retries=6
@@ -419,3 +419,42 @@ if st.session_state["campaign_result"] is not None:
         file_name=f"{st.session_state['brand'].lower()}_campaign_report.md",
         mime="text/markdown"
     )
+
+    # =========================
+    # 🔌 N8N PIPELINE INTEGRATION
+    # =========================
+    st.markdown("---")
+    st.markdown("### 🔌 Automation Pipeline (n8n)")
+    st.markdown("Expose and trigger your marketing pipelines automatically using webhook integrations.")
+
+    n8n_url = st.text_input(
+        "Enter your n8n Production Webhook URL",
+        placeholder="https://your-n8n-instance.com/webhook/campaign-trigger"
+    )
+
+    if st.button("Trigger n8n Campaign Pipeline"):
+        if not n8n_url:
+            st.warning("⚠️ Please provide a valid n8n Webhook URL!")
+        else:
+            with st.spinner("Pushing campaign payloads to n8n..."):
+                try:
+                    import requests
+
+                    payload = {
+                        "brand_name": st.session_state["brand"],
+                        "product_name": st.session_state["product"],
+                        "target_audience": st.session_state["audience"],
+                        "marketing_goal": st.session_state["goal"],
+                        "campaign_budget": st.session_state["budget"],
+                        "platforms": st.session_state["selected_platforms"],
+                        "campaign_report": st.session_state["campaign_result"]
+                    }
+
+                    response = requests.post(n8n_url, json=payload, timeout=30)
+
+                    if response.status_code == 200:
+                        st.success("🚀 Campaign successfully sent to n8n workflow!")
+                    else:
+                        st.error(f"❌ Failed to trigger n8n (HTTP {response.status_code}): {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Webhook Error: {str(e)}")
