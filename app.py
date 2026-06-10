@@ -275,7 +275,7 @@ if st.button("Generate Campaign"):
         )
 
         reporting_task = Task(
-            description=f"Synthesize the outputs of all 10 previous tasks for {brand_name} into a single comprehensive, executive-ready final marketing campaign report with a clear table of contents.",
+            description=f"Synthesize the outputs of all 10 previous tasks for {brand_name} into a single comprehensive, executive-ready final marketing campaign report with a clear table of contents. IMPORTANT: Do NOT use raw HTML anchor tags (like <a name='...'></a>) in the report. Only use standard markdown headings.",
             expected_output="A cohesive, end-to-end markdown report compiling the entire campaign package.",
             agent=executive_reporter
         )
@@ -318,8 +318,12 @@ if st.button("Generate Campaign"):
         # =========================
         result = crew.kickoff()
 
+        # Sanitize to remove raw HTML anchor tags
+        import re
+        sanitized_result = re.sub(r'<a\s+[^>]*>\s*</a>', '', str(result))
+
         # Save results to Session State to persist across reruns
-        st.session_state["campaign_result"] = str(result)
+        st.session_state["campaign_result"] = sanitized_result
         st.session_state["brand"] = brand_name
         st.session_state["product"] = product_name
         st.session_state["audience"] = target_audience

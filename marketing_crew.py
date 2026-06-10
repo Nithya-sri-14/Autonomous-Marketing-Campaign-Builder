@@ -323,7 +323,7 @@ def main():
     )
 
     reporting_task = Task(
-        description=f"Synthesize the outputs of all 10 previous tasks for {args.brand} into a single comprehensive, executive-ready final marketing campaign report with a clear table of contents.",
+        description=f"Synthesize the outputs of all 10 previous tasks for {args.brand} into a single comprehensive, executive-ready final marketing campaign report with a clear table of contents. IMPORTANT: Do NOT use raw HTML anchor tags (like <a name='...'></a>) in the report. Only use standard markdown headings.",
         expected_output="A cohesive, end-to-end markdown report compiling the entire campaign package.",
         agent=executive_reporter
     )
@@ -366,8 +366,12 @@ def main():
 
     result = asyncio.run(run_crew())
 
+    # Sanitize to remove raw HTML anchor tags
+    import re
+    sanitized_result = re.sub(r'<a\s+[^>]*>\s*</a>', '', str(result))
+
     with open(args.output, "w", encoding="utf-8") as f:
-        f.write(str(result))
+        f.write(sanitized_result)
 
     print(f"\n✅ Campaign successfully generated and saved to: {args.output}")
 
