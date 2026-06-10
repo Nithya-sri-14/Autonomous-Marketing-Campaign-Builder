@@ -208,8 +208,8 @@ def main():
 
     social_manager = Agent(
         role="Social Media Manager",
-        goal=f"Translate the written campaign assets into high-performance social posts for the selected platforms: {', '.join(platforms_list)}.",
-        backstory="You are a social-native storyteller. You know how to hook attention on LinkedIn and structure Twitter threads.",
+        goal=f"Translate the written campaign assets into high-performance social posts for the selected platforms: {', '.join(platforms_list)}. For Instagram, ensure an image suggestion prompt is included.",
+        backstory="You are a social-native storyteller. You know how to hook attention on LinkedIn, structure Twitter threads, and generate engaging Instagram caption copy along with relevant image concept suggestions.",
         verbose=True,
         allow_delegation=False,
         llm=llm
@@ -293,8 +293,8 @@ def main():
     )
 
     social_task = Task(
-        description=f"Review the generated blog article and write social media promotions for platforms: {', '.join(platforms_list)}. Create 1 LinkedIn post using the 'hook -> story -> value -> CTA' structure and a Twitter/X thread of 4-6 tweets.",
-        expected_output="A social media package including 1 LinkedIn post and 1 Twitter/X thread.",
+        description=f"Review the generated blog article and write social media promotions for platforms: {', '.join(platforms_list)}. Create 1 LinkedIn post using the 'hook -> story -> value -> CTA' structure, a Twitter/X thread of 4-6 tweets, and for Instagram, create a caption and suggest an image to accompany it. IMPORTANT: For Instagram, write the image suggestion in this exact format: 'IMAGE_PROMPT: [Detailed description of a highly relevant image to generate]'.",
+        expected_output="A social media package including 1 LinkedIn post, 1 Twitter/X thread, and an Instagram caption with a designated IMAGE_PROMPT.",
         agent=social_manager
     )
 
