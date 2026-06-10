@@ -3,7 +3,7 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "campaign-trigger",
+        "path": "crewai-campaign-trigger",
         "options": {}
       },
       "id": "6ae3a7ad-5194-4e4e-8564-d3415f7f5f67",
@@ -19,7 +19,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Automatically handles nested 'body' data from n8n webhooks!\nconst json = $input.item.json.body || $input.item.json;\nconst text = json.campaign_report || '';\n\n// Split the markdown by standard H2/H3 headers\nconst sections = text.split(/\\n##?\\s+/);\n\nlet research = '';\nlet contentStrategy = '';\nlet paidAds = '';\n\nfor (const section of sections) {\n  const lines = section.split('\\n');\n  const title = lines[0].toLowerCase();\n  \n  if (title.includes('research') || title.includes('trend')) {\n    research = '## ' + section.trim();\n  } else if (title.includes('content') || title.includes('social') || title.includes('write')) {\n    contentStrategy = '## ' + section.trim();\n  } else if (title.includes('ad') || title.includes('paid') || title.includes('budget')) {\n    paidAds = '## ' + section.trim();\n  }\n}\n\nif (!research) research = text;\nif (!contentStrategy) contentStrategy = text;\n\n// Extract LinkedIn & Instagram specific sections\nlet linkedin = '';\nconst liMatch = contentStrategy.match(/(?:LinkedIn|Professional Post):?\\s*([\\s\\S]*?)(?=\\n(?:Twitter|Instagram|X|Post 2)|$)/i);\nlinkedin = liMatch ? liMatch[1].trim() : contentStrategy;\n\nlet instagram = '';\nconst igMatch = contentStrategy.match(/(?:Instagram|IG Caption):?\\s*([\\s\\S]*?)(?=\\n(?:LinkedIn|Twitter|X|Post)|$)/i);\ninstagram = igMatch ? igMatch[1].trim() : contentStrategy;\n\nreturn {\n  json: {\n    brand_name: json.brand_name || 'N/A',\n    product_name: json.product_name || 'N/A',\n    target_audience: json.target_audience || 'N/A',\n    marketing_goal: json.marketing_goal || 'N/A',\n    campaign_budget: json.campaign_budget || 'N/A',\n    research_brief: research,\n    content_strategy: contentStrategy,\n    paid_ads_strategy: paidAds,\n    linkedin_post: linkedin,\n    instagram_caption: instagram\n  }\n};"
+        "jsCode": "// Automatically handles nested 'body' data from n8n webhooks!\nconst json = $input.item.json.body || $input.item.json;\nconst text = json.campaign_report || '';\n\n// Split the markdown by standard headers (## )\nconst sections = text.split(/\\n##?\\s+/);\n\nlet research = '';\nlet contentStrategy = '';\nlet paidAds = '';\n\nfor (const section of sections) {\n  const lines = section.split('\\n');\n  const title = lines[0].toLowerCase();\n  \n  if (title.includes('research') || title.includes('trend')) {\n    research = '## ' + section.trim();\n  } else if (title.includes('content') || title.includes('social') || title.includes('write')) {\n    contentStrategy = '## ' + section.trim();\n  } else if (title.includes('ad') || title.includes('paid') || title.includes('budget')) {\n    paidAds = '## ' + section.trim();\n  }\n}\n\n// Fallback if split fails\nif (!research) research = text;\nif (!contentStrategy) contentStrategy = text;\n\n// Extract LinkedIn & Instagram specific sections\nlet linkedin = '';\nconst liMatch = contentStrategy.match(/(?:LinkedIn|Professional Post):?\\s*([\\s\\S]*?)(?=\\n(?:Twitter|Instagram|X|Post 2)|$)/i);\nlinkedin = liMatch ? liMatch[1].trim() : contentStrategy;\n\nlet instagram = '';\nconst igMatch = contentStrategy.match(/(?:Instagram|IG Caption):?\\s*([\\s\\S]*?)(?=\\n(?:LinkedIn|Twitter|X|Post)|$)/i);\ninstagram = igMatch ? igMatch[1].trim() : contentStrategy;\n\nreturn {\n  json: {\n    brand_name: json.brand_name || 'N/A',\n    product_name: json.product_name || 'N/A',\n    target_audience: json.target_audience || 'N/A',\n    marketing_goal: json.marketing_goal || 'N/A',\n    campaign_budget: json.campaign_budget || 'N/A',\n    research_brief: research,\n    content_strategy: contentStrategy,\n    paid_ads_strategy: paidAds,\n    linkedin_post: linkedin,\n    instagram_caption: instagram\n  }\n};"
       },
       "id": "dd65f20c-1ef4-41d5-8c3a-ca87d716f0e7",
       "name": "Parse & Extract Sections",
@@ -33,9 +33,9 @@
     {
       "parameters": {
         "sendTo": "nithyasria10a@gmail.com,harivarshan45@gmail.com",
-        "subject": "=🚀 CrewAI Campaign: {{ $json.brand_name }} - {{ $json.product_name }} Ready!",
+        "subject": "=\ud83d\ude80 CrewAI Campaign: {{ $json.brand_name }} - {{ $json.product_name }} Ready!",
         "emailType": "text",
-        "message": "=📢 BRAND CAMPAIGN PACKAGE SUCCESSFULLY COMPILED\n\nBrand: {{ $json.brand_name }}\nProduct: {{ $json.product_name }}\nAudience: {{ $json.target_audience }}\nBudget: {{ $json.campaign_budget }}\n\n=========================================\n🕵️\u200d♂️ MARKET RESEARCH BRIEF\n=========================================\n{{ $json.research_brief }}\n\n\n=========================================\n✍️ CONTENT STRATEGY & SOCIAL COPY\n=========================================\n{{ $json.content_strategy }}\n\n\n=========================================\n💳 PAID ADVERTISING BLUEPRINT\n=========================================\n{{ $json.paid_ads_strategy }}",
+        "message": "=\ud83d\udce2 BRAND CAMPAIGN PACKAGE SUCCESSFULLY COMPILED\n\nBrand: {{ $json.brand_name }}\nProduct: {{ $json.product_name }}\nAudience: {{ $json.target_audience }}\nBudget: {{ $json.campaign_budget }}\n\n=========================================\n\ud83d\udd75\ufe0f\u200d\u2642\ufe0f MARKET RESEARCH BRIEF\n=========================================\n{{ $json.research_brief }}\n\n\n=========================================\n\u270d\ufe0f CONTENT STRATEGY & SOCIAL COPY\n=========================================\n{{ $json.content_strategy }}\n\n\n=========================================\n\ud83d\udcb3 PAID ADVERTISING BLUEPRINT\n=========================================\n{{ $json.paid_ads_strategy }}",
         "options": {}
       },
       "id": "ccdac234-43ad-4001-b84e-494a0cc36fa3",
@@ -46,6 +46,7 @@
         560,
         352
       ],
+      "webhookId": "79bfce2b-fe59-46c3-8c79-5e526debc324",
       "credentials": {
         "gmailOAuth2": {
           "id": "b6RGEg2d2zgukAqA",
@@ -56,7 +57,7 @@
     {
       "parameters": {
         "chatId": "=7568714587",
-        "text": "=🚀 New Campaign Generated!\n\nBrand: {{ $json.brand_name }}\nProduct: {{ $json.product_name }}\nGoal: {{ $json.marketing_goal }}\nBudget: {{ $json.campaign_budget }}",
+        "text": "=\ud83d\ude80 New Campaign Generated!\n\nBrand: {{ $json.brand_name }}\nProduct: {{ $json.product_name }}\nGoal: {{ $json.marketing_goal }}\nBudget: {{ $json.campaign_budget }}",
         "additionalFields": {}
       },
       "id": "68261a76-6d11-4255-96d7-aaf052b63c90",
@@ -67,6 +68,7 @@
         560,
         160
       ],
+      "webhookId": "6ef7ca37-5253-46f8-9666-8e8036202570",
       "credentials": {
         "telegramApi": {
           "id": "tBnyYkaei0lnorDp",
@@ -77,7 +79,7 @@
     {
       "parameters": {
         "chatId": "=7568714587",
-        "text": "=📝 LinkedIn Draft (Full View):\n=========================================\n{{ $(\"Parse & Extract Sections\").item.json.linkedin_post.substring(0, 3800) }}",
+        "text": "=\ud83d\udcdd LinkedIn Draft (Full View):\n=========================================\n{{ $(\"Parse & Extract Sections\").item.json.linkedin_post.substring(0, 3800) }}",
         "additionalFields": {
           "parse_mode": "HTML"
         }
@@ -90,6 +92,7 @@
         784,
         160
       ],
+      "webhookId": "b0c15035-4995-47de-bf51-70b82f179a51",
       "credentials": {
         "telegramApi": {
           "id": "tBnyYkaei0lnorDp",
@@ -100,7 +103,7 @@
     {
       "parameters": {
         "chatId": "=7568714587",
-        "text": "=📸 Instagram Draft (Full View):\n=========================================\n{{ $(\"Parse & Extract Sections\").item.json.instagram_caption.substring(0, 3800) }}\n\n=========================================\n📬 The complete, full-text strategy has been sent to your email inbox!",
+        "text": "=\ud83d\udcf8 Instagram Draft (Full View):\n=========================================\n{{ $(\"Parse & Extract Sections\").item.json.instagram_caption.substring(0, 3800) }}\n\n=========================================\n\ud83d\udcec The complete, full-text strategy has been sent to your email inbox!",
         "additionalFields": {
           "parse_mode": "HTML"
         }
@@ -113,6 +116,7 @@
         1008,
         160
       ],
+      "webhookId": "987c630c-9015-46b8-a019-8428398ba988",
       "credentials": {
         "telegramApi": {
           "id": "tBnyYkaei0lnorDp",

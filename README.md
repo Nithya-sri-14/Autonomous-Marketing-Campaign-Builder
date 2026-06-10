@@ -1,4 +1,4 @@
-# 🚀 Autonomous Marketing Campaign Builder with CrewAI + RAG + Gemini
+# 🚀 Autonomous Marketing Campaign Builder with CrewAI + Gemini + RAG
 
 Welcome to the **Autonomous Marketing Campaign Builder**, a production-ready, multi-agent digital marketing automation platform. This system utilizes a **Multi-Agent Orchestration Framework (CrewAI)** combined with a **Google Gemini Large Language Model**, local **HuggingFace Embeddings**, and a **ChromaDB Vector Database for Retrieval-Augmented Generation (RAG)** to produce high-value, organic marketing campaigns matching a specific brand voice.
 
@@ -7,6 +7,8 @@ It supports both an interactive **Streamlit Web Application** for a visual exper
 ---
 
 ## 📐 Multi-Agent Workflow & RAG Architecture
+
+The workflow progresses dynamically across specialized stages:
 
 ```text
 [User Campaign Topic Input]
@@ -19,20 +21,48 @@ It supports both an interactive **Streamlit Web Application** for a visual exper
            ├──► 🧑‍💻 Agent 1: Trend Researcher
            │           │   └─ Goal: Analyze current marketing channels & growth tactics.
            │           ▼
-           ├──► 🔍 Agent 2: SEO Specialist
+           ├──► 📊 Agent 2: Competitor Intelligence Analyst
+           │           │   └─ Goal: Analyze competitor positioning, strengths, and weaknesses.
+           │           ▼
+           ├──► 🔍 Agent 3: SEO Specialist
            │           │   └─ Goal: Generate keywords, optimize page title, structure, & meta tags.
            │           ▼
-           ├──► ✍️ Agent 3: Content Writer  ◄── [RAG Context Injected (data/brand.txt guidelines)]
+           ├──► 📝 Agent 4: Content Strategist
+           │           │   └─ Goal: Create structured campaign strategy and content map.
+           │           ▼
+           ├──► ✍️ Agent 5: Content Writer  ◄── [RAG Context Injected (data/brand.txt guidelines)]
            │           │   └─ Goal: Draft high-value, direct blog articles without buzzwords.
            │           ▼
-           └──► 📱 Agent 4: Social Media Manager
-                       │   └─ Goal: Translate campaign into punchy LinkedIn posts & Twitter threads.
+           ├──► 📱 Agent 6: Social Media Manager
+           │           │   └─ Goal: Translate campaign into punchy LinkedIn posts & Twitter threads.
+           │           ▼
+           ├──► 📧 Agent 7: Email Marketer
+           │           │   └─ Goal: Draft direct-response email sequences and newsletters.
+           │           ▼
+           ├──► 🗓️ Agent 8: Campaign Planner
+           │           │   └─ Goal: Structure campaign launch timeline, platform selection, & budget.
+           │           ▼
+           ├──► 📈 Agent 9: Performance Analytics Specialist
+           │           │   └─ Goal: Establish measurement framework, KPIs, and tracking metrics.
+           │           ▼
+           ├──► 👮 Agent 10: Brand Compliance Officer
+           │           │   └─ Goal: Audit assets for brand consistency, compliance, & prohibited buzzwords.
+           │           ▼
+           └──► 🎤 Agent 11: Executive Reporter
+                       │   └─ Goal: Compile all inputs into a single cohesive, premium marketing campaign report.
                        ▼
              [Final Markdown Campaign Package]
              ├─ Research Brief
+             ├─ Competitive Analysis
              ├─ SEO Keyword Blueprint
+             ├─ Content Strategy Map
              ├─ Complete Long-form Blog Post
-             └─ Value-driven Social Content (LinkedIn + Twitter thread)
+             ├─ Value-driven Social Content (LinkedIn + Twitter thread)
+             ├─ Email Marketing Package
+             ├─ Campaign Launch Plan
+             ├─ Performance Measurement Matrix
+             ├─ Brand Compliance Audit
+             └─ Executive Campaign Report
 ```
 
 ---
@@ -44,11 +74,13 @@ It supports both an interactive **Streamlit Web Application** for a visual exper
 │   └── brand.txt             # Brand identity, tone guidelines, and prohibited words (RAG source)
 ├── outputs/                  # Directory where CLI campaign output markdown briefs are saved
 ├── app.py                    # Streamlit Web Application (Includes custom premium UI & n8n triggers)
-├── marketing_crew.py         # CLI execution script running the 4-agent campaign builder
+├── marketing_crew.py         # CLI execution script running the 11-agent campaign builder
 ├── n8n_workflow.json         # Ready-to-import n8n workflow for post-generation distribution
 ├── requirements.txt          # Python dependencies
 ├── .env.example              # Sample environment configuration file
-└── .gitignore                # Git files/directories to ignore (keeps API keys and databases local)
+├── .gitignore                # Git files/directories to ignore (keeps API keys and databases local)
+├── Autonomous_Marketing_Campaign_Builder.ipynb # Google Colab Notebook
+└── README.md                 # Project documentation
 ```
 
 ---
@@ -110,7 +142,7 @@ streamlit run app.py
 
 Open the URL provided in your terminal (usually `http://localhost:8501`).
 
-- **Auto RAG Database Build**: The Streamlit app checks if `./chroma_db` is populated. If not, it automatically reads your `data/brand.txt` file, chunks the text, creates embeddings using local HuggingFace models, and builds the Chroma database.
+- **Auto RAG Database Build**: The Streamlit app checks if `./chroma_db` is populated. If not, it automatically reads your `data/brand.txt` file, chunks the text, creates embeddings using local sentence-transformer models, and builds the Chroma database.
 - **Custom CSS Theme**: The application features a premium dark-glassmorphism theme with modern typography ("Plus Jakarta Sans").
 - **n8n Webhook Trigger**: Easily input your n8n production webhook URL in the UI to push generated marketing campaigns directly into automated delivery pipelines.
 
@@ -119,11 +151,11 @@ Open the URL provided in your terminal (usually `http://localhost:8501`).
 Run the multi-agent system directly from your command line to automate campaign generation.
 
 ```bash
-# Run with default topic
+# Run with default settings
 python marketing_crew.py
 
-# Run with custom campaign topic
-python marketing_crew.py --topic "Newsletter growth strategies for local retail shops" --output "outputs/newsletter_campaign.md"
+# Run with custom campaign settings
+python marketing_crew.py --topic "SEO tactics for local SaaS tools" --brand "MySaaS" --product "SEO Generator" --audience "SaaS founders" --output "outputs/saas_campaign.md"
 ```
 
 ---
@@ -156,7 +188,7 @@ This project is fully compatible with **AWS Elastic Beanstalk (Python Platform)*
 - **Platform Branch**: `Python 3.11 running on 64bit Amazon Linux 2023` (or `Python 3.10`)
 
 ### 2. AWS Compatibility Measures
-- **Streamlit Port Routing**: The bundle includes a `Procfile` at the root which configures Streamlit to run on port `5000` (which AWS Elastic Beanstalk uses to proxy HTTP traffic).
+- **Streamlit Port Routing**: The bundle includes a `Procfile` at the root which configures Streamlit to run on port `8000` (which AWS Elastic Beanstalk uses to proxy HTTP traffic).
 - **SQLite3 Patch**: AWS runs Amazon Linux which comes with an older version of SQLite. The code contains an automatic patch (`pysqlite3-binary`) that overrides the system sqlite3 dynamically on start.
 - **Cache Directory**: We configure the HuggingFace cache directory (`HF_HOME`) to `/tmp/huggingface` in the code, ensuring the models can be downloaded to a writable location on EC2 instances.
 
@@ -178,27 +210,3 @@ This project is fully compatible with **AWS Elastic Beanstalk (Python Platform)*
    - Save and apply the configuration.
 4. **Access the App**:
    Once the environment health shows **Green**, click the environment URL to open your Streamlit app!
-
----
-
-## 📤 Pushing to GitHub
-
-To store this code on your GitHub account, run these commands in your project root folder:
-
-```bash
-# Initialize git repository
-git init
-
-# Add all files to staging (sensitive credentials are ignored automatically via .gitignore)
-git add .
-
-# Create the initial commit
-git commit -m "Initial commit: Autonomous Marketing Campaign Builder"
-
-# Create a new repository on github.com (without README or gitignore), then link it:
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git
-
-# Push the code to GitHub
-git push -u origin main
-```

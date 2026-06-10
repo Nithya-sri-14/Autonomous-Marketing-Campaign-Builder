@@ -1,23 +1,12 @@
+
 import os
-import sys
-
-# AWS Compatibility: Patch SQLite3 for ChromaDB and set HF_HOME for writable cache directory
-try:
-    import pysqlite3
-    sys.modules["sqlite3"] = pysqlite3
-except ImportError:
-    pass
-
-os.environ["HF_HOME"] = "/tmp/huggingface"
-
 import streamlit as st
-from dotenv import load_dotenv
-
-# Load local environment variables from .env file
-load_dotenv()
 
 from crewai import Agent, Task, Crew, LLM
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Correct imports
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 # =========================
@@ -29,251 +18,64 @@ st.set_page_config(
     layout="wide"
 )
 
-# =========================
-# CUSTOM PREMIUM STYLING
-# =========================
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
-    
-    html, body, [data-testid="stSidebar"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-    }
-    
-    /* Title Gradient */
-    .main-title {
-        font-size: 2.8rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-    }
-    
-    .subtitle {
-        color: #9ca3af;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-    
-    /* Styled container card for campaign output */
-    .report-card {
-        background: rgba(255, 255, 255, 0.03);
-        border-radius: 12px;
-        padding: 2rem;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        margin-top: 1.5rem;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-    }
-    
-    /* Custom style for buttons */
-    div.stButton > button {
-        background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
-        color: white !important;
-        border: none;
-        padding: 0.6rem 2rem;
-        font-weight: 600;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-        width: 100%;
-    }
-    
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-        background: linear-gradient(90deg, #4f46e5 0%, #9333ea 100%);
-        color: white !important;
-    }
-    
-    /* Headers styling */
-    h1, h2, h3 {
-        font-weight: 700 !important;
-    }
-    
-    /* Info/Success metrics styling */
-    .metric-box {
-        background-color: rgba(99, 102, 241, 0.1);
-        border-left: 4px solid #6366f1;
-        padding: 1rem;
-        border-radius: 4px;
-        margin-bottom: 1rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown('<div class="main-title">🚀 Autonomous AI Marketing Campaign Builder</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Orchestrate role-playing AI agents and inject RAG-powered brand guidelines to build premium marketing assets.</div>', unsafe_allow_html=True)
+st.title("🚀 Autonomous AI Marketing Campaign Builder (11 Agents)")
+st.markdown("Generate complete marketing campaigns using AI Agents + Gemini")
 
 # =========================
 # GEMINI API KEY
 # =========================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Check if key is missing or invalid (doesn't start with AIzaSy or AQ.)
-is_valid_key = GEMINI_API_KEY and (GEMINI_API_KEY.startswith("AIzaSy") or GEMINI_API_KEY.startswith("AQ."))
-
-if not is_valid_key:
-    if GEMINI_API_KEY:
-        st.warning(f"⚠️ The configured key ({GEMINI_API_KEY[:6]}...) is invalid. Gemini API keys must start with 'AIzaSy' or 'AQ.'. Please enter a valid key below:")
-    else:
-        st.warning("⚠️ GEMINI_API_KEY environment variable not found. Please enter it below or configure your .env file.")
-    
-    user_key = st.text_input("Gemini API Key", type="password")
-    if user_key and (user_key.startswith("AIzaSy") or user_key.startswith("AQ.")):
-        GEMINI_API_KEY = user_key
-    else:
-        st.info("Please set a valid Gemini API Key to continue.")
-        st.stop()
-
-# Force key propagation to all Google GenAI libraries
-os.environ["GOOGLE_API_KEY"] = GEMINI_API_KEY
-os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
-
-# Display key status in sidebar for debugging
-st.sidebar.success(f"🔑 API Key: {GEMINI_API_KEY[:6]}... (len: {len(GEMINI_API_KEY)})")
+if not GEMINI_API_KEY:
+    st.error("GEMINI_API_KEY not found!")
+    st.stop()
 
 # =========================
 # GEMINI MODEL
 # =========================
 llm = LLM(
-    model="gemini/gemini-1.5-flash",
+    model="gemini/gemma-4-31b-it",
     temperature=0.7,
     api_key=GEMINI_API_KEY,
     max_retries=6
 )
 
 # =========================
-# VECTOR DATABASE (AUTO-BUILD)
+# VECTOR DATABASE
 # =========================
 @st.cache_resource
 def load_vectorstore():
-    embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004"
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     persist_db_path = "./chroma_db"
-    
-    # Check if the DB path exists and is populated
-    if not os.path.exists(persist_db_path) or not os.listdir(persist_db_path):
-        brand_path = os.path.join("data", "brand.txt")
-        if os.path.exists(brand_path):
-            from langchain_community.document_loaders import TextLoader
-            from langchain_text_splitters import RecursiveCharacterTextSplitter
-            
-            loader = TextLoader(brand_path)
-            documents = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-            docs = text_splitter.split_documents(documents)
-            
-            vectorstore = Chroma.from_documents(
-                documents=docs,
-                embedding=embeddings,
-                persist_directory=persist_db_path
-            )
-        else:
-            # Create a basic guidelines file if missing
-            os.makedirs("data", exist_ok=True)
-            default_guidelines = """[BRAND IDENTITY & VOICE GUIDELINES]
-TONE & STYLE:
-- Startup Tone: Bold, high-energy, ambitious, transparent, and direct.
-- Conversational Writing: Speak directly to the reader. Use 'you' and 'we'.
-- Founder-Focused: Speak to resource-constrained builders.
-"""
-            with open(brand_path, "w", encoding="utf-8") as f:
-                f.write(default_guidelines)
-            
-            from langchain_community.document_loaders import TextLoader
-            from langchain_text_splitters import RecursiveCharacterTextSplitter
-            
-            loader = TextLoader(brand_path)
-            documents = loader.load()
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50)
-            docs = text_splitter.split_documents(documents)
-            
-            vectorstore = Chroma.from_documents(
-                documents=docs,
-                embedding=embeddings,
-                persist_directory=persist_db_path
-            )
-    else:
-        vectorstore = Chroma(
-            persist_directory=persist_db_path,
-            embedding_function=embeddings
-        )
+    vectorstore = Chroma(
+        persist_directory=persist_db_path,
+        embedding_function=embeddings
+    )
     return vectorstore
 
-try:
-    vectorstore = load_vectorstore()
-except Exception as e:
-    st.error(f"Failed to load/initialize Chroma DB: {e}")
-    st.markdown(
-        """
-        ### 🔍 How to resolve this issue:
-        
-        1. **Check your Gemini API Key**:
-           - Make sure your key is copied completely and starts with `AIzaSy...`.
-           - In AWS Elastic Beanstalk, make sure you configured `GEMINI_API_KEY` under **Configuration** -> **Environment properties** (Platform properties).
-           
-        2. **Enable the Generative Language API**:
-           - If you created your API key using the **Google Cloud Console** instead of **Google AI Studio**, you must manually go to your GCP project and **enable the Generative Language API**.
-           - If using Google AI Studio, this API is enabled automatically.
-           
-        3. **Clear Cached Files**:
-           - If you previously had a corrupted database build, clear the cache. In AWS, redeploying with a different version label will reset the staging folder.
-        """
-    )
-    st.stop()
+vectorstore = load_vectorstore()
 
 # =========================
 # SIDEBAR INPUTS
 # =========================
 st.sidebar.header("Campaign Inputs")
 
-brand_name = st.sidebar.text_input(
-    "Brand Name",
-    "Nike"
-)
-
-product_name = st.sidebar.text_input(
-    "Product / Service",
-    "AI Fitness Shoes"
-)
-
-target_audience = st.sidebar.text_input(
-    "Target Audience",
-    "College Students"
-)
+brand_name = st.sidebar.text_input("Brand Name", "Nike")
+product_name = st.sidebar.text_input("Product / Service", "AI Fitness Shoes")
+target_audience = st.sidebar.text_input("Target Audience", "College Students")
 
 marketing_goal = st.sidebar.selectbox(
     "Marketing Goal",
-    [
-        "Brand Awareness",
-        "Lead Generation",
-        "Sales Conversion",
-        "Product Launch"
-    ]
+    ["Brand Awareness", "Lead Generation", "Sales Conversion", "Product Launch"]
 )
 
-campaign_budget = st.sidebar.text_input(
-    "Campaign Budget",
-    "$5000"
-)
+campaign_budget = st.sidebar.text_input("Campaign Budget", "$5000")
 
 platforms = st.sidebar.multiselect(
     "Platforms",
-    [
-        "Instagram",
-        "LinkedIn",
-        "Twitter",
-        "YouTube",
-        "Facebook",
-        "TikTok",
-        "Telegram",
-        "Email"
-    ],
+    ["Instagram", "LinkedIn", "Twitter", "YouTube", "Facebook", "TikTok", "Telegram", "Email"],
     default=["Instagram", "Twitter"]
 )
 
@@ -291,117 +93,232 @@ def retrieve_context(query):
 # =========================
 # INITIALIZE SESSION STATE
 # =========================
-if "campaign_result" not in st.session_state:
-    st.session_state["campaign_result"] = None
-if "brand" not in st.session_state:
-    st.session_state["brand"] = ""
-if "product" not in st.session_state:
-    st.session_state["product"] = ""
-if "audience" not in st.session_state:
-    st.session_state["audience"] = ""
-if "goal" not in st.session_state:
-    st.session_state["goal"] = ""
-if "budget" not in st.session_state:
-    st.session_state["budget"] = ""
-if "selected_platforms" not in st.session_state:
-    st.session_state["selected_platforms"] = []
+for key in ["campaign_result", "brand", "product", "audience", "goal", "budget", "selected_platforms"]:
+    if key not in st.session_state:
+        st.session_state[key] = None if key == "campaign_result" else ([] if key == "selected_platforms" else "")
 
 # =========================
 # GENERATE CAMPAIGN
 # =========================
 if st.button("Generate Campaign"):
-    with st.spinner("AI Agents are building your campaign..."):
-        # Retrieve guidelines context
-        rag_query = f"Marketing guidelines and tone for {brand_name} {product_name}"
+    with st.spinner("AI Agents are building your campaign (11 agents running)..."):
+
+        # =========================
+        # RAG CONTEXT
+        # =========================
+        rag_query = f"Marketing strategies for {brand_name} product {product_name} audience {target_audience}"
         rag_context = retrieve_context(rag_query)
 
-        # Initialize Agents
-        market_research_agent = Agent(
-            role="Market Research Analyst",
-            goal=f"Analyze market trends, audience behavior, competitors, and opportunities for {brand_name}.",
-            backstory="You are an expert marketing strategist specializing in audience research and competitive analysis.",
+        # =========================
+        # AGENTS
+        # =========================
+        researcher = Agent(
+            role="Trend Researcher",
+            goal=f"Analyze current marketing trends, tactics, and strategies relevant to the campaign for brand {brand_name}",
+            backstory="You are an expert market analyst who specializes in uncovering low-cost, high-impact growth channels for bootstrapped startups.",
             verbose=True,
             allow_delegation=False,
             llm=llm
         )
 
-        content_agent = Agent(
+        competitor_analyst = Agent(
+            role="Competitor Intelligence Analyst",
+            goal=f"Analyze competitor positioning, marketing angles, strengths, and weaknesses for {brand_name}",
+            backstory="You are a strategic intelligence specialist. You study competitor landing pages and messaging to identify gaps and differentiation opportunities.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        seo_specialist = Agent(
+            role="SEO Specialist",
+            goal=f"Construct a high-performance SEO strategy for {brand_name}'s product {product_name}",
+            backstory="You are a data-driven SEO wizard. You excel at search intent analysis, keyword structuring, and building topical authority plans.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        content_strategist = Agent(
             role="Content Strategist",
-            goal="Create engaging social media and campaign content.",
-            backstory="You are a viral content creator with expertise in modern marketing.",
+            goal=f"Create a structured campaign strategy and content map for {brand_name}",
+            backstory="You are a creative campaign planner. You synthesize raw trend data and competitor analysis into high-level content pillars and content calendars.",
             verbose=True,
             allow_delegation=False,
             llm=llm
         )
 
-        ad_agent = Agent(
-            role="Advertising Expert",
-            goal="Create paid ad strategy, budget allocation, and conversion ideas.",
-            backstory="You are a digital ads specialist skilled in high-converting campaigns.",
+        writer = Agent(
+            role="Content Writer",
+            goal=f"Draft an engaging, authoritative, and direct blog article for brand {brand_name}. Adhere to writing voice guidelines.",
+            backstory="You are an elite copywriter trained in direct-response writing. You avoid buzzwords at all costs and write punchy, conversational articles.",
             verbose=True,
             allow_delegation=False,
             llm=llm
         )
 
-        # Initialize Tasks
+        social_manager = Agent(
+            role="Social Media Manager",
+            goal=f"Translate the written campaign assets into high-performance social posts for the selected platforms: {', '.join(platforms)}.",
+            backstory="You are a social-native storyteller. You know how to hook attention on LinkedIn and structure Twitter threads.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        email_marketer = Agent(
+            role="Email Marketer",
+            goal=f"Draft direct-response email sequences and newsletters for {brand_name} that build trust and drive conversions.",
+            backstory="You are an expert email marketer. You focus on personalization, clear subject lines, and compelling CTAs.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        campaign_planner = Agent(
+            role="Campaign Planner",
+            goal=f"Structure a detailed campaign launch timeline and platform selection blueprint for {brand_name} with budget {campaign_budget}.",
+            backstory="You are an organized campaign coordinator. You determine where and when content should be distributed to maximize organic reach.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        performance_analyst = Agent(
+            role="Performance Analytics Specialist",
+            goal=f"Establish a complete measurement framework, KPIs, and tracking metrics for the {brand_name} campaign.",
+            backstory="You are a data-driven growth analyst. You define exactly how to measure awareness, engagement, conversion, and retention.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        brand_compliance_officer = Agent(
+            role="Brand Compliance Officer",
+            goal=f"Audit all generated campaign assets for brand consistency, compliance, and ensure no prohibited buzzwords are used.",
+            backstory="You are a strict compliance auditor and editor. You verify final outputs against brand positioning, tone of voice, and compliance rules.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        executive_reporter = Agent(
+            role="Executive Reporter",
+            goal=f"Compile and format all inputs from the agents into a single, cohesive, premium marketing campaign report for {brand_name}.",
+            backstory="You are a professional technical communicator. You structure complex strategy documents into readable executive summaries and markdown reports.",
+            verbose=True,
+            allow_delegation=False,
+            llm=llm
+        )
+
+        # =========================
+        # TASKS
+        # =========================
         research_task = Task(
-            description=f"""Perform detailed market research.
-Brand: {brand_name}
-Product: {product_name}
-Audience: {target_audience}
-Goal: {marketing_goal}
-
-Use this additional brand guidelines context:
-{rag_context}
-
-Include:
-- Audience insights
-- Competitor analysis
-- Current trends
-- Opportunities""",
+            description=f"Perform detailed market research. Brand: {brand_name}, Product: {product_name}, Audience: {target_audience}, Goal: {marketing_goal}. Context: {rag_context}. Include: audience insights, current trends, and growth opportunities.",
             expected_output="Detailed marketing research report.",
-            agent=market_research_agent
+            agent=researcher
         )
 
-        content_task = Task(
-            description=f"""Create a content strategy.
-Platforms: {', '.join(platforms)}
-
-Include:
-- Social media post ideas
-- Content calendar
-- Captions
-- Hashtag strategy
-- Viral campaign ideas""",
-            expected_output="Complete content marketing plan.",
-            agent=content_agent
+        competitor_task = Task(
+            description=f"Analyze key competitors for {brand_name} in the {product_name} space. Identify their value propositions, marketing channels, and weaknesses.",
+            expected_output="A competitive analysis report with 3 key differentiation opportunities.",
+            agent=competitor_analyst
         )
 
-        ad_task = Task(
-            description=f"""Create a paid advertising strategy.
-Budget: {campaign_budget}
-
-Include:
-- Ad targeting
-- Budget allocation
-- Best platforms
-- Conversion strategy
-- KPI recommendations""",
-            expected_output="Complete paid ads strategy.",
-            agent=ad_agent
+        seo_task = Task(
+            description=f"Develop a target SEO strategy for {brand_name}'s {product_name} targeting {target_audience}. Provide: 1 primary keyword, 3-5 LSI keywords, an SEO title, a meta description under 160 characters, and a H2/H3 outline.",
+            expected_output="An SEO strategy blueprint containing target keywords and structured outline.",
+            agent=seo_specialist
         )
 
-        # Assemble Crew
+        strategist_task = Task(
+            description=f"Create a content strategy for {brand_name}. Define 3 primary content pillars and map them to customer awareness stages.",
+            expected_output="A content strategy map detailing 3 content pillars, awareness stage alignments, and target messaging.",
+            agent=content_strategist
+        )
+
+        writing_task = Task(
+            description=f"Write a complete, high-quality, long-form blog article for {brand_name}'s {product_name} targeting {target_audience}. Follow the SEO and Content Strategy outlines.",
+            expected_output="A complete, ready-to-publish blog article (700-1000 words) in a bold, conversational voice.",
+            agent=writer
+        )
+
+        social_task = Task(
+            description=f"Review the generated blog article and write social media promotions for platforms: {', '.join(platforms)}. Create 1 LinkedIn post using the 'hook -> story -> value -> CTA' structure and a Twitter/X thread of 4-6 tweets.",
+            expected_output="A social media package including 1 LinkedIn post and 1 Twitter/X thread.",
+            agent=social_manager
+        )
+
+        email_task = Task(
+            description=f"Draft an email marketing package for {brand_name} consisting of 1 welcome email and a 2-part educational newsletter sequence on the topic of {product_name}.",
+            expected_output="Complete email marketing copy sequence with subject lines, body copy, and CTAs.",
+            agent=email_marketer
+        )
+
+        planning_task = Task(
+            description=f"Develop a 4-week distribution calendar for {brand_name}'s {marketing_goal} campaign across platforms: {', '.join(platforms)}. Budget: {campaign_budget}.",
+            expected_output="A structured 4-week campaign calendar and platform distribution schedule.",
+            agent=campaign_planner
+        )
+
+        analytics_task = Task(
+            description=f"Design a performance measurement framework for {brand_name}'s campaign. List specific metrics for Awareness, Engagement, Conversion, and Retention categories.",
+            expected_output="A performance measurement matrix detailing KPIs, target benchmarks, and tracking methods.",
+            agent=performance_analyst
+        )
+
+        compliance_task = Task(
+            description=f"Audit all generated campaign assets for {brand_name} against brand guidelines, tone of voice rules, and compliance policies. Identify and flag any prohibited buzzwords.",
+            expected_output="A brand compliance audit report highlighting issues found and corrective actions taken.",
+            agent=brand_compliance_officer
+        )
+
+        reporting_task = Task(
+            description=f"Synthesize the outputs of all 10 previous tasks for {brand_name} into a single comprehensive, executive-ready final marketing campaign report with a clear table of contents.",
+            expected_output="A cohesive, end-to-end markdown report compiling the entire campaign package.",
+            agent=executive_reporter
+        )
+
+        # =========================
+        # CREW AI - ALL 11 AGENTS
+        # =========================
         crew = Crew(
-            agents=[market_research_agent, content_agent, ad_agent],
-            tasks=[research_task, content_task, ad_task],
+            agents=[
+                researcher,
+                competitor_analyst,
+                seo_specialist,
+                content_strategist,
+                writer,
+                social_manager,
+                email_marketer,
+                campaign_planner,
+                performance_analyst,
+                brand_compliance_officer,
+                executive_reporter
+            ],
+            tasks=[
+                research_task,
+                competitor_task,
+                seo_task,
+                strategist_task,
+                writing_task,
+                social_task,
+                email_task,
+                planning_task,
+                analytics_task,
+                compliance_task,
+                reporting_task
+            ],
             verbose=True
         )
 
-        # Run Crew
+        # =========================
+        # RUN CREW
+        # =========================
         result = crew.kickoff()
 
-        # Save to Session State
+        # Save results to Session State to persist across reruns
         st.session_state["campaign_result"] = str(result)
         st.session_state["brand"] = brand_name
         st.session_state["product"] = product_name
@@ -411,44 +328,41 @@ Include:
         st.session_state["selected_platforms"] = platforms
 
 # =========================
-# DISPLAY OUTPUT & N8N AUTOMATION PIPELINE
+# DISPLAY OUTPUT & N8N AUTOMATION PIPELINE (Outside the button click block)
 # =========================
 if st.session_state["campaign_result"] is not None:
     st.success("Campaign Generated Successfully!")
-    
-    st.markdown('<div class="report-card">', unsafe_allow_html=True)
-    st.markdown("## 📊 AI Campaign Report")
-    st.markdown(st.session_state["campaign_result"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("## AI Campaign Report")
+    st.write(st.session_state["campaign_result"])
 
-    # Download Button
+    # =========================
+    # DOWNLOAD REPORT
+    # =========================
     st.download_button(
         label="Download Campaign Report",
         data=st.session_state["campaign_result"],
-        file_name=f"{st.session_state['brand'].lower()}_campaign_report.md",
-        mime="text/markdown"
+        file_name="marketing_campaign_report.txt",
+        mime="text/plain"
     )
 
     # =========================
-    # 🔌 N8N PIPELINE INTEGRATION
+    # N8N PIPELINE INTEGRATION
     # =========================
     st.markdown("---")
-    st.markdown("### 🔌 Automation Pipeline (n8n)")
-    st.markdown("Expose and trigger your marketing pipelines automatically using webhook integrations.")
+    st.markdown("### Automation Pipeline (n8n)")
 
     n8n_url = st.text_input(
         "Enter your n8n Production Webhook URL",
-        placeholder="https://your-n8n-instance.com/webhook/campaign-trigger"
+        placeholder="https://nithya-sri-14.app.n8n.cloud/webhook-test/crewai-campaign-trigger"
     )
 
     if st.button("Trigger n8n Campaign Pipeline"):
         if not n8n_url:
-            st.warning("⚠️ Please provide a valid n8n Webhook URL!")
+            st.warning("Please provide a valid n8n Webhook URL!")
         else:
             with st.spinner("Pushing campaign payloads to n8n..."):
                 try:
                     import requests
-
                     payload = {
                         "brand_name": st.session_state["brand"],
                         "product_name": st.session_state["product"],
@@ -458,12 +372,10 @@ if st.session_state["campaign_result"] is not None:
                         "platforms": st.session_state["selected_platforms"],
                         "campaign_report": st.session_state["campaign_result"]
                     }
-
                     response = requests.post(n8n_url, json=payload, timeout=30)
-
                     if response.status_code == 200:
-                        st.success("🚀 Campaign successfully sent to n8n workflow!")
+                        st.success("Campaign successfully sent to n8n workflow!")
                     else:
-                        st.error(f"❌ Failed to trigger n8n (HTTP {response.status_code}): {response.text}")
+                        st.error(f"Failed to trigger n8n (HTTP {response.status_code}): {response.text}")
                 except Exception as e:
-                    st.error(f"❌ Webhook Error: {str(e)}")
+                    st.error(f"Webhook Error: {str(e)}")
